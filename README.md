@@ -1,23 +1,8 @@
-# Simple Node Server with Babel
+# baidu-doc(WIP)
+Articles on [百度文库](https://wenku.baidu.com) are downloaded with 下载券 normally. TROUBLESOME, especially I have no 下载券 ! So I made this simple automatic tool to capture the article as images, then you can process these images as your mind, e.g. converting to pdf, merge them etc.
 
-[![Build Status](https://travis-ci.org/rwieruch/node-babel-server.svg?branch=master)](https://travis-ci.org/rwieruch/node-babel-server) [![Slack](https://slack-the-road-to-learn-react.wieruch.com/badge.svg)](https://slack-the-road-to-learn-react.wieruch.com/) [![Greenkeeper badge](https://badges.greenkeeper.io/rwieruch/node-babel-server.svg)](https://greenkeeper.io/)
+# Usage
+This tool is WIP, coming soon
 
-An easy way to get started with JavaScript on the command line. [Read more about it](https://www.robinwieruch.de/minimal-node-js-babel-setup).
-
-## Features
-
-* Babel 7
-* Environment Variables
-
-## Requirements
-
-* [node & npm](https://nodejs.org/en/)
-* [git](https://www.robinwieruch.de/git-essential-commands/)
-
-## Installation
-
-* `git clone git@github.com:rwieruch/node-babel-server.git`
-* `cd node-babel-server`
-* `npm install`
-* `npm start`
-* optional: include *.env* in your *.gitignore*
+# License
+MIT

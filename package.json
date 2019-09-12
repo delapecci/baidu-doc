@@ -2,21 +2,35 @@
   "name": "node-babel-server",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "bin": {
+    "bdwkc": "./dist/index.js"
+  },
+  "main": "dist/index.js",
   "scripts": {
     "start": "nodemon --exec babel-node src/index.js",
-    "test": "echo \"No test specified\" && exit 0"
+    "test": "./node_modules/.bin/mocha --require @babel/register --recursive ./test",
+    "build": "./node_modules/.bin/babel src --out-dir ./dist --source-maps"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "Li Chong <delapecci@gmail.com>",
+  "license": "MIT",
   "devDependencies": {
     "@babel/core": "^7.2.2",
+    "@babel/cli": "^7.2.2",
     "@babel/node": "^7.2.2",
     "@babel/preset-env": "^7.2.3",
+    "chai": "^4.2.0",
+    "mocha": "^6.2.0",
     "nodemon": "^1.18.9"
   },
   "dependencies": {
-    "dotenv": "^6.2.0"
+    "chalk": "^2.4.2",
+    "dotenv": "^6.2.0",
+    "gm": "^1.23.1",
+    "puppeteer": "^1.19.0",
+    "tesseract.js": "^2.0.0-alpha.15"
+  },
+  "repository": {
+    "url": "https://github.com/delapecci/baidu-doc"
   }
 }
