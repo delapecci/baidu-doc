@@ -5,6 +5,8 @@ Articles on [百度文库](https://wenku.baidu.com) are downloaded with 下载�
 This tool is WIP, now only DOC/PDF article can be captured
 
 # Todo
+- [x] Support DOC
+- [x] Support PDF
 - [ ] Support TXT
 - [ ] Support PPT
 - [ ] Better CLI interface
