@@ -1,18 +1,29 @@
 import EventEmitter from 'events';
 import path from 'path';
+import fs from 'fs';
+import util from 'util';
 import puppeteer from 'puppeteer';
 import chalk from 'chalk';
 
-import { append_all } from './image_helper';
+// import { append_all } from './image_helper';
 
+/**
+ * 文档抓取功能类，基于EventEmitter，允许事件外部监听
+ * 
+ */
 export default class DocCapture extends EventEmitter {
   constructor() {
     super();
   }
 
+  /**
+   * API: 执行抓取
+   * @param {string} docUrl 
+   * @param {string} workDir 
+   */
   async process(docUrl, workDir) {
     this.docUrl = docUrl;
-    this.captureId = `ZW_${parseInt(Math.random() * 1000)}`;
+    this.captureId = `ZW_${Date.now()}`;
     this.workDir = workDir || '.';
 
     this.on('CAPTURE_PAGE', (viewNo) => {
@@ -44,6 +55,9 @@ export default class DocCapture extends EventEmitter {
     }
   }
 
+  /**
+   * 私有: 加载文档
+   */
   async _loadDoc() {
     await this.page.goto(
       this.docUrl,
@@ -56,6 +70,9 @@ export default class DocCapture extends EventEmitter {
     this.docTitle = docTitle.replace(/\s|\-|百度文库/g, '');
   } 
 
+  /**
+   * 修剪文档页面
+   */
   async _trimDoc() {
     // 点击继续阅读
     await this.page.click('.moreBtn');
@@ -67,8 +84,33 @@ export default class DocCapture extends EventEmitter {
       $('.fix-searchbar-wrap').remove();
       $('.reader-tools-bar-wrap').remove();
       $('#hd').remove();
+
       // FIXME: 可能还会有其他浮动广告
-      $('#lastcell-dialog').remove();
+      $('.lastcell-dialog').remove();
+      $('#docBubble').remove();
+      $('#vip-cms-doc-list').remove();
+      $('#fc-left').remove();
+      $('#shareWrap-1').remove();
+      $('.ys-ads-mask').remove();
+      $('form').remove();
+      $('#html-reader-go-more').remove();
+
+      $('.dialog-container-iframe').remove();
+      $('#WkDialogDownDoc').remove();
+      $('#BAIDU_DUP_fp_wrapper').remove();
+      // $('.tangram-suggestion-main').remove();
+
+      $('#reader-qrcode-tip').remove();
+      $('#reader-translate-tip').remove();
+      $('#reader-baike-tip').remove();
+      $('#tip-gc').remove();
+      $('#activity-tg').remove();
+      $('#reader-helper-el').remove();
+      $('#reader-copy-success-tip').remove();
+      $('#reader-wkvideo-card').remove();
+      $('#ZeroClipboardMovie_1').parent().remove();
+      
+      $('#sampling-area').remove();
 
       $('#ft').remove();
       $('.ft').remove();
@@ -79,63 +121,41 @@ export default class DocCapture extends EventEmitter {
       $('#doc_bottom_wrap').remove();
       $('#next_doc_box').remove();
       $('.aside').remove();
-      window.__SCREEN_TOP__ = false;
+      // window.__SCREEN_TOP__ = false;
 
-      $('html, body').animate({ 'scrollTop': 10 }, 1000, function() {
-        window.__SCREEN_TOP__ = true;
-      });
+      // $('html, body').animate({ 'scrollTop': 10 }, 1000, function() {
+      //   window.__SCREEN_TOP__ = true;
+      // });
 
     });
     
-    await this.page.waitForFunction(function() {
-      return window.__SCREEN_TOP__ === true
-    }, { polling: 1000 });
+    // await this.page.waitForFunction(function() {
+    //   return window.__SCREEN_TOP__ === true
+    // }, { polling: 1000 });
 
   }
 
+  /**
+   * 私有: 滚屏抓取
+   */
   async _capture() {
 
     // 滚动文档加载页面，并截图
     let viewNo = 1;
-    while (true) {
+    const totalPage = await this.page.evaluate('$(".reader-page").length');
+    while (viewNo <= totalPage) {
 
       // const session = await this.page.target().createCDPSession();
       // await session.send('Emulation.setPageScaleFactor', {
       //   pageScaleFactor: 0.5, // 50%
       // });
 
-      // FIXME: 抓取出现空白，一般在最后一页或两页
-      await this.page.evaluate(function(w) {
-        window.reader.reader.setZoom(w);
-      }, this._defaultViewport().width * 0.92);
+      // await this.page.evaluate(function(w) {
+      //   if (window.reader && window.reader.reader && window.reader.reader.setZoom) {
+      //     window.reader.reader.setZoom(w);
+      //   }
+      // }, this._defaultViewport().width * 0.92);
 
-      await this.page.waitFor(1500);
-
-      await this.page.screenshot({
-        type: 'jpeg',
-        path: path.join(this.workDir, `${this.captureId}_${viewNo}.png`)
-      });
-
-      // const docPageHandle = await this.page.$('#pageNo-' + viewNo);
-      // const boundingBox = await docPageHandle.boundingBox();
-      // const newViewport = {
-      //     width: Math.max(this._defaultViewport().width, Math.ceil(boundingBox.width)),
-      //     height: Math.max(this._defaultViewport().height, Math.ceil(boundingBox.height)),
-      // };
-      // await this.page.setViewport(Object.assign({}, this._defaultViewport(), newViewport));
-
-      // await this._screenshotDOMElement({
-      //   selector: '#pageNo-' + viewNo,
-      //   path: path.join(this.workDir, `${this.captureId}_${viewNo}.png`)
-      // }).then((buffer) => {
-      //   console.log('>>>>>>>> ' + viewNo);
-      // });
-
-      await this.page.waitFor(1500);
-
-      this.emit('CAPTURE_PAGE', viewNo);
-      
-      viewNo++;
       // 滚屏并等待需要加载的内容
       await this.page.evaluate(function(n) {
         window.__SCREEN_SCROLLED__ = false;
@@ -152,31 +172,70 @@ export default class DocCapture extends EventEmitter {
         }
       }, viewNo);
 
-      // FIXME: 检查是否已经滚动到底
-      const scroll_bottom = await this.page.evaluate('window.__SCREEN_BOTTOM__');
-      if (scroll_bottom == true) {
-        break;
-      }
-
       await this.page.waitForFunction(function(n) {
-        // 检查后两页：滚动停止且内容加载完成
+
+        if (window.__SCREEN_BOTTOM__ === true) return true;
+        // 检查页：滚动停止且内容加载完成
         var _new_page_selector = '#pageNo-' + n;
-        // var _new_page_loaded_selector = '#pageNo-' + n + ' .reader-txt-layer .reader-word-layer';
+        var _new_page_loaded_selector = '#pageNo-' + n + ' .reader-txt-layer .reader-word-layer';
         
         return (window.__SCREEN_SCROLLED__ === true 
-          && ($(_new_page_selector).length > 0 && $(_new_page_selector).data('render') === 1));
+          && ($(_new_page_selector).length > 0 && $(_new_page_selector).data('render') === 1 
+          && $(_new_page_loaded_selector).length > 3 && $(_new_page_loaded_selector).get(0).innerText != ''));
       }, { polling: 1000 }, viewNo);
+      
+      await this.page.waitFor(1000);
+      
+      await this.page.screenshot({
+        type: 'jpeg',
+        path: path.join(this.workDir, `${this.captureId}_${viewNo}.jpeg`)
+      });
+      
+      // const docPageHandle = await this.page.$('#pageNo-' + viewNo);
+      // const boundingBox = await docPageHandle.boundingBox();
+      // const newViewport = {
+      //     width: Math.max(this._defaultViewport().width, Math.ceil(boundingBox.width)),
+      //     height: Math.max(this._defaultViewport().height, Math.ceil(boundingBox.height)),
+      // };
+      // await this.page.setViewport(Object.assign({}, this._defaultViewport(), newViewport));
+        
+      // FIXME: 抓取出现空白，一般在最后一页或两页
+      // let clipBuff = await this._screenshotDOMElement({
+      //   selector: '#pageNo-' + viewNo
+      //   // ,
+      //   // path: path.join(this.workDir, `${this.captureId}_${viewNo}.jpeg`)
+      // });
+      // const asyncWriteFile = util.promisify(fs.writeFile);
+      // await asyncWriteFile(
+      //   path.join(this.workDir, `${this.captureId}_${viewNo}.jpeg`),
+      //   clipBuff,
+      //   'binary');
+
+      this.emit('CAPTURE_PAGE', viewNo);
+
+      // // FIXME: 检查是否已经滚动到底
+      // const scroll_bottom = await this.page.evaluate('window.__SCREEN_BOTTOM__');
+      // if (scroll_bottom == true) {
+      //   break;
+      // }
+      
+      viewNo++;
 
     }
 
     // 合并图片
     // const output = await append_all(this.captureId, this.docTitle, path.resolve(this.workDir));
 
-    this.emit('capture_complete', path.resolve(this.workDir), this.captureId, viewNo);
+    this.emit('capture_complete', path.resolve(this.workDir), this.captureId, this.docTitle);
 
     // return output;
   }
 
+  /**
+   * 私有: 截取DOM Element
+   * FIXME: 存在clip抓取空白bug
+   * @param {object} opts 
+   */
   async _screenshotDOMElement(opts = {}) {
     const padding = 'padding' in opts ? opts.padding : 0;
     const path = 'path' in opts ? opts.path : null;
@@ -205,26 +264,28 @@ export default class DocCapture extends EventEmitter {
     console.log(chalk.red(JSON.stringify(rect)));
 
     return await this.page.screenshot({
-        path,
-        clip: {
-            x: rect.left - padding,
-            y: rect.top - padding,
-            width: rect.width + padding * 2,
-            height: rect.height + padding * 2
-        }
+      type: 'jpeg',
+      // path,
+      clip: {
+        x: rect.left - padding,
+        y: rect.top - padding,
+        width: rect.width + padding * 2,
+        height: rect.height + padding * 2
+      }
     });
   }
 
+  /**
+   * 默认浏览器viewport
+   */
   _defaultViewport() {
     return {
-      width: 630,
-      height: 780,
       // height: 803,
-      // width: 734,
-      // height: 1038,
+      width: 734,
+      height: 1039,
       // width: 954,
       // height: 1349,
-      deviceScaleFactor: 2,
+      deviceScaleFactor: 1
     };
   }
 
