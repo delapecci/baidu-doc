@@ -27,6 +27,7 @@
     "chalk": "^2.4.2",
     "dotenv": "^6.2.0",
     "gm": "^1.23.1",
+    "inquirer": "^7.0.0",
     "puppeteer": "^1.19.0",
     "tesseract.js": "^2.0.0-alpha.15"
   },

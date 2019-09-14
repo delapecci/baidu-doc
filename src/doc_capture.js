@@ -27,7 +27,7 @@ export default class DocCapture extends EventEmitter {
     this.workDir = workDir || '.';
 
     this.on('CAPTURE_PAGE', (viewNo) => {
-      console.log(chalk.green('[保存第' + viewNo + '屏]'));
+      console.log('📥\t' + chalk.green('[保存第' + viewNo + '屏]'));
     });
 
     const browser = await puppeteer.launch({
@@ -42,18 +42,18 @@ export default class DocCapture extends EventEmitter {
       await this.page.setViewport(this._defaultViewport());
 
       await this._loadDoc();
-      console.log(chalk.green('[打开文档' + this.docTitle + ']'));
-      console.log(chalk.green('[展开所有页]'));
+      console.log('🔎\t' + chalk.green('[打开文档' + this.docTitle + ']'));
+      console.log('🔪\t' + chalk.green('[展开所有页]'));
       await this._trimDoc();
 
       // 获取文档类型
       this.docType = await this.page.evaluate('window.__DOC_TYPE__');
 
-      console.log(chalk.green('[分屏抓取]'));
+      console.log('✂️\t' + chalk.green('[分屏抓取]'));
       await this._capture();
-      console.log(chalk.green('[文档抓取完毕]'));
+      console.log('🎉\t' + chalk.green('[文档抓取完毕]'));
     } catch (e) {
-      console.log(chalk.green('[Error] ' + e.message));
+      console.log('💣\t' + chalk.red('[Error] ' + e.message));
     } finally {
       await browser.close();
     }
@@ -170,7 +170,7 @@ export default class DocCapture extends EventEmitter {
     })(this.docType);
 
     if (pageSelectorPrefix === null) {
-      console.warn(chalk.yellowBright('暂不支持此类文档'));
+      console.warn('🥺\t' + chalk.yellowBright('暂不支持此类文档'));
       return Promise.resolve();
     }
 
@@ -212,7 +212,7 @@ export default class DocCapture extends EventEmitter {
         var _new_page_selector = pageSelectorPrefix + n;
         var _new_page_loaded_selector = pageSelectorPrefix + n + ' ' + pageLineClass;
         if (window.__DOC_TYPE__ === 'ppt') {
-          // 对于ppt一类图片内容，直接异步下载图片
+          // 对于ppt一类图片内容，检查图片要素是否完整
           return (window.__SCREEN_SCROLLED__ === true 
             && ($(_new_page_selector).length > 0 && $(_new_page_loaded_selector).attr('src') != ''));
         } else {
@@ -299,7 +299,7 @@ export default class DocCapture extends EventEmitter {
 
     if (!rect)
         throw Error(`Could not find element that matches selector: ${selector}.`);
-    console.log(chalk.red(JSON.stringify(rect)));
+    // console.log(chalk.red(JSON.stringify(rect)));
 
     return await this.page.screenshot({
       type,
