@@ -21,8 +21,9 @@ const outputDir = process.argv[3];  // 输出文档图片路径
 (async () => {
   const docCapture = new DocCapture();
   // Example: 监听抓取完成事件，利用imagemagick生成pdf
-  docCapture.on('capture_complete', async (workDir, captureId, docTitle) => {
-    await bundle_pdf(captureId, docTitle, workDir);
+  docCapture.on('capture_complete', async (workDir, captureId, docTitle, docType) => {
+    if (docType !== 'txt')
+      await bundle_pdf(captureId, docTitle, workDir);
   });
   await docCapture.process(
     // 'https://wenku.baidu.com/view/72e9233b4b7302768e9951e79b89680203d86b05.html',

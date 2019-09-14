@@ -7,8 +7,9 @@ This tool is WIP, now only DOC/PDF article can be captured
 # Todo
 - [x] Support DOC
 - [x] Support PDF
-- [ ] Support TXT
-- [ ] Support PPT
+- [x] Support XLS
+- [x] Support TXT
+- [x] Support PPT
 - [ ] Better CLI interface
 - [ ] Perfect the capture method
 

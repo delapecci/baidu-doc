@@ -24,7 +24,7 @@ export async function bundle_pdf(imageTag, pdfTitle, workDirPath) {
   const aexec = util.promisify(exec);
   const images = path.resolve(workDirPath, `${imageTag}_*.{png,jpeg}`);
   const outputImage = path.resolve(workDirPath, `${pdfTitle}.pdf`);
-  const { stderr } = await aexec(`convert "${images}" -quality 20 ${outputImage}`);
+  const { stderr } = await aexec(`convert "${images}" -quality 100 ${outputImage}`);
   if (stderr) {
     throw new Error(stderr);
   }

@@ -45,6 +45,10 @@ export default class DocCapture extends EventEmitter {
       console.log(chalk.green('[打开文档' + this.docTitle + ']'));
       console.log(chalk.green('[展开所有页]'));
       await this._trimDoc();
+
+      // 获取文档类型
+      this.docType = await this.page.evaluate('window.__DOC_TYPE__');
+
       console.log(chalk.green('[分屏抓取]'));
       await this._capture();
       console.log(chalk.green('[文档抓取完毕]'));
@@ -115,23 +119,35 @@ export default class DocCapture extends EventEmitter {
       $('#ft').remove();
       $('.ft').remove();
       $('.crubms-wrap').remove();
-      $('#doc-header-test').remove();
       $('.doc-tag-wrap').remove();
       $('.banner-ad').remove();
       $('#doc_bottom_wrap').remove();
       $('#next_doc_box').remove();
+
+      // 移除右侧边栏，减少推荐文档图标对文档类型解析的干扰
       $('.aside').remove();
-      // window.__SCREEN_TOP__ = false;
-
-      // $('html, body').animate({ 'scrollTop': 10 }, 1000, function() {
-      //   window.__SCREEN_TOP__ = true;
-      // });
-
+      // 从文档标题内容中获取文档类型
+      if ($('.ic-pdf').length === 1) {
+        window.__DOC_TYPE__ = 'pdf';
+      }
+      else if ($('.ic-doc').length === 1) {
+        window.__DOC_TYPE__ = 'doc';
+      }
+      else if ($('.ic-txt').length === 1) {
+        window.__DOC_TYPE__ = 'txt';
+      }
+      else if ($('.ic-ppt').length === 1) {
+        window.__DOC_TYPE__ = 'ppt';
+      }
+      else if ($('.ic-xls').length === 1) {
+        window.__DOC_TYPE__ = 'xls';
+      }
+      else {
+        window.__DOC_TYPE__ = 'unsupported'
+      }
+      // 移除文档标题
+      $('#doc-header-test').remove();
     });
-    
-    // await this.page.waitForFunction(function() {
-    //   return window.__SCREEN_TOP__ === true
-    // }, { polling: 1000 });
 
   }
 
@@ -140,9 +156,27 @@ export default class DocCapture extends EventEmitter {
    */
   async _capture() {
 
+    let { pageSelectorPrefix, pageClass, pageLineClass } = ((docType) => {
+
+      if (docType === 'doc' || docType === 'pdf' || docType === 'xls') {
+        return { pageSelectorPrefix: '#pageNo-', pageClass: '.reader-page', pageLineClass: '.reader-txt-layer .reader-word-layer' };
+      } else if (docType === 'txt') {
+        return { pageSelectorPrefix: '#reader-pageNo-', pageClass: '.reader-page-wrap', pageLineClass: '.p-txt' };
+      } else if (docType === 'ppt') {
+        return { pageSelectorPrefix: '.reader-pageNo-', pageClass: '.ppt-image-wrap', pageLineClass: 'img' };
+      } else {
+        return null;
+      }
+    })(this.docType);
+
+    if (pageSelectorPrefix === null) {
+      console.warn(chalk.yellowBright('暂不支持此类文档'));
+      return Promise.resolve();
+    }
+
     // 滚动文档加载页面，并截图
     let viewNo = 1;
-    const totalPage = await this.page.evaluate('$(".reader-page").length');
+    const totalPage = await this.page.evaluate('$("' + pageClass + '").length');
     while (viewNo <= totalPage) {
 
       // const session = await this.page.target().createCDPSession();
@@ -157,11 +191,10 @@ export default class DocCapture extends EventEmitter {
       // }, this._defaultViewport().width * 0.92);
 
       // 滚屏并等待需要加载的内容
-      await this.page.evaluate(function(n) {
+      await this.page.evaluate(function(n, pageSelectorPrefix) {
         window.__SCREEN_SCROLLED__ = false;
-        // $('html, body').animate({ 'scrollTop': (distance + 15) * n }, 3000, function() {
-        if ($('#pageNo-' + n).length === 1) {
-          $('html, body').animate({ 'scrollTop': $('#pageNo-' + n).offset().top }, 2000, function() {
+        if ($(pageSelectorPrefix + n).length === 1) {
+          $('html, body').animate({ 'scrollTop': $(pageSelectorPrefix + n).offset().top, 'scrollLeft': $(pageSelectorPrefix + n).offset().left }, 2000, function() {
             window.__SCREEN_SCROLLED__ = true;
             if (document.body.offsetHeight - (window.innerHeight + window.pageYOffset) <= 2) {
               window.__SCREEN_BOTTOM__ = true;
@@ -170,65 +203,69 @@ export default class DocCapture extends EventEmitter {
         } else {
           window.__SCREEN_BOTTOM__ = true;
         }
-      }, viewNo);
+      }, viewNo, pageSelectorPrefix);
 
-      await this.page.waitForFunction(function(n) {
+      await this.page.waitForFunction(function(n, pageSelectorPrefix, pageLineClass) {
 
         if (window.__SCREEN_BOTTOM__ === true) return true;
         // 检查页：滚动停止且内容加载完成
-        var _new_page_selector = '#pageNo-' + n;
-        var _new_page_loaded_selector = '#pageNo-' + n + ' .reader-txt-layer .reader-word-layer';
-        
-        return (window.__SCREEN_SCROLLED__ === true 
-          && ($(_new_page_selector).length > 0 && $(_new_page_selector).data('render') === 1 
-          && $(_new_page_loaded_selector).length > 3 && $(_new_page_loaded_selector).get(0).innerText != ''));
-      }, { polling: 1000 }, viewNo);
+        var _new_page_selector = pageSelectorPrefix + n;
+        var _new_page_loaded_selector = pageSelectorPrefix + n + ' ' + pageLineClass;
+        if (window.__DOC_TYPE__ === 'ppt') {
+          // 对于ppt一类图片内容，直接异步下载图片
+          return (window.__SCREEN_SCROLLED__ === true 
+            && ($(_new_page_selector).length > 0 && $(_new_page_loaded_selector).attr('src') != ''));
+        } else {
+          // FIXME: 暂时对于文字类文档加载完成与否，采用一种建议算法：3行且第一行内容不为空
+          return (window.__SCREEN_SCROLLED__ === true 
+            && ($(_new_page_selector).length > 0 
+            // && $(_new_page_selector).data('render') === 1 
+            && $(_new_page_loaded_selector).length > 3 && $(_new_page_loaded_selector).get(0).innerText != ''));
+        }
+      }, { polling: 1000 }, viewNo, pageSelectorPrefix, pageLineClass);
+
+      // 适应页面大小
+      const docPageHandle = await this.page.$(pageSelectorPrefix + viewNo);
+      const boundingBox = await docPageHandle.boundingBox();
+      const newViewport = {
+          width: Math.max(this._defaultViewport().width, Math.ceil(boundingBox.width)),
+          //FIXME: 这是一个并不可靠的方式，依据百度文库文档一般都不会大于默认尺寸的假设，此处对viewport的设置选择较小值
+          height: Math.min(this._defaultViewport().height, Math.ceil(boundingBox.height)),
+      };
+      await this.page.setViewport(Object.assign({}, this._defaultViewport(), newViewport));
       
       await this.page.waitFor(1000);
-      
-      await this.page.screenshot({
-        type: 'jpeg',
-        path: path.join(this.workDir, `${this.captureId}_${viewNo}.jpeg`)
-      });
-      
-      // const docPageHandle = await this.page.$('#pageNo-' + viewNo);
-      // const boundingBox = await docPageHandle.boundingBox();
-      // const newViewport = {
-      //     width: Math.max(this._defaultViewport().width, Math.ceil(boundingBox.width)),
-      //     height: Math.max(this._defaultViewport().height, Math.ceil(boundingBox.height)),
-      // };
-      // await this.page.setViewport(Object.assign({}, this._defaultViewport(), newViewport));
-        
-      // FIXME: 抓取出现空白，一般在最后一页或两页
-      // let clipBuff = await this._screenshotDOMElement({
-      //   selector: '#pageNo-' + viewNo
-      //   // ,
-      //   // path: path.join(this.workDir, `${this.captureId}_${viewNo}.jpeg`)
-      // });
-      // const asyncWriteFile = util.promisify(fs.writeFile);
-      // await asyncWriteFile(
-      //   path.join(this.workDir, `${this.captureId}_${viewNo}.jpeg`),
-      //   clipBuff,
-      //   'binary');
+
+      if (this.docType === 'txt') {
+        // txt类型文档直接抓取内容
+        const txtContents = await this.page.evaluate((pageSelector) => {
+          return $(pageSelector + ' .p-txt').text();
+        }, pageSelectorPrefix + viewNo);
+        await this._appendTxt(txtContents, path.join(this.workDir, `${this.docTitle}.txt`));
+      } else {
+        // doc/pdf/xls抓取屏幕
+        // FIXME: page.screenshot clip bug
+        // if (Math.ceil(boundingBox.height) < this._defaultViewport().height) {
+        //   await this._screenshotDOMElement({
+        //     path: path.join(this.workDir, `${this.captureId}_${viewNo}.jpeg`),
+        //     selector: pageSelectorPrefix + viewNo,
+        //     type: 'jpeg'
+        //   })
+        // } else {
+          await this.page.screenshot({
+            type: 'jpeg',
+            path: path.join(this.workDir, `${this.captureId}_${viewNo}.jpeg`)
+          });
+        // }
+      }
 
       this.emit('CAPTURE_PAGE', viewNo);
-
-      // // FIXME: 检查是否已经滚动到底
-      // const scroll_bottom = await this.page.evaluate('window.__SCREEN_BOTTOM__');
-      // if (scroll_bottom == true) {
-      //   break;
-      // }
       
       viewNo++;
 
     }
 
-    // 合并图片
-    // const output = await append_all(this.captureId, this.docTitle, path.resolve(this.workDir));
-
-    this.emit('capture_complete', path.resolve(this.workDir), this.captureId, this.docTitle);
-
-    // return output;
+    this.emit('capture_complete', path.resolve(this.workDir), this.captureId, this.docTitle, this.docType);
   }
 
   /**
@@ -239,6 +276,7 @@ export default class DocCapture extends EventEmitter {
   async _screenshotDOMElement(opts = {}) {
     const padding = 'padding' in opts ? opts.padding : 0;
     const path = 'path' in opts ? opts.path : null;
+    const type = 'type' in opts ? opts.type : 'png';
     const selector = opts.selector;
 
     if (!selector)
@@ -264,8 +302,8 @@ export default class DocCapture extends EventEmitter {
     console.log(chalk.red(JSON.stringify(rect)));
 
     return await this.page.screenshot({
-      type: 'jpeg',
-      // path,
+      type,
+      path,
       clip: {
         x: rect.left - padding,
         y: rect.top - padding,
@@ -276,12 +314,22 @@ export default class DocCapture extends EventEmitter {
   }
 
   /**
+   * 输出文本到文本文件末尾(append)
+   * @param {string} text 文本内容
+   * @param {string} path 输出文本文件路径
+   */
+  async _appendTxt(text, path) {
+    const awriteFile = util.promisify(fs.appendFile);
+    return awriteFile(path, text);
+  }
+
+  /**
    * 默认浏览器viewport
    */
   _defaultViewport() {
     return {
       // height: 803,
-      width: 734,
+      width: 744,
       height: 1039,
       // width: 954,
       // height: 1349,
