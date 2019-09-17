@@ -27,6 +27,7 @@ bdwkc
 - [x] Support TXT
 - [x] Support PPT
 - [x] Better CLI interface
+- [ ] Web interface
 - [ ] Perfect the capture method
 
 # License

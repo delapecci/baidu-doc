@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "",
   "bin": {
-    "bdwkc": "./dist/index.js"
+    "bdwkc": "./dist/index.js",
+    "bdwkc_ws": "./dist/server.js"
   },
   "main": "dist/index.js",
   "scripts": {

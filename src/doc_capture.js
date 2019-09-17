@@ -32,9 +32,8 @@ export default class DocCapture extends EventEmitter {
 
     const browser = await puppeteer.launch({
       headless: true,
-      executablePath: process.env.CHROMIUM_EXEC_PATH, 
       ignoreHTTPSErrors: true,
-      args: ["--ignore-certificate-errors"] 
+      args: ["--ignore-certificate-errors", "--no-sandbox"] 
     });
   
     try {
