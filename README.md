@@ -9,14 +9,23 @@ npm start
 Or, you can build and run bin file
 ```
 npm run build
+# CLI
 chmod +x ./dist/index.js
 ./dist/index.js
+
+# Websocket server
+chmod +x ./dist/server.js
+./dist/server.js
 ```
 More, you can install as global command
 ```
 npm install -g .
 # Just exec the command
+# CLI
 bdwkc
+
+# Start websocket server
+bdwkc_ws
 ```
 [![asciicast](https://asciinema.org/a/fgosNTSMp25PpxvALPi7B3Qbd.svg)](https://asciinema.org/a/fgosNTSMp25PpxvALPi7B3Qbd)
 
@@ -27,7 +36,7 @@ bdwkc
 - [x] Support TXT
 - [x] Support PPT
 - [x] Better CLI interface
-- [ ] Web interface
+- [x] Web interface
 - [ ] Perfect the capture method
 
 # License
