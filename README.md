@@ -10,8 +10,10 @@ Or, you can build and run bin file
 ```
 npm run build
 # CLI
-chmod +x ./dist/index.js
-./dist/index.js
+node ./dist/index.js
+
+# Websocket server
+node ./dist/server.js
 ```
 More, you can install as global command
 ```
@@ -19,8 +21,20 @@ npm install -g .
 # Just exec the command
 # CLI
 bdwkc
+
+# Websocket server
+bdwkc_ws
 ```
 [![asciicast](https://asciinema.org/a/fgosNTSMp25PpxvALPi7B3Qbd.svg)](https://asciinema.org/a/fgosNTSMp25PpxvALPi7B3Qbd)
+
+> **ATTENTION**
+> 
+> Required environment variables if you run this program due to npm global installed command
+>
+> ***PUPPETEER_EXECUTABLE_PATH***: Puppeteer standard env. variable, which tells an executable path of Chromium/Chrome
+>
+> ***BDWKC_OUTPUT_DIR***: Output path of captured document images
+>
 
 # Features
 - [x] Support DOC
@@ -29,7 +43,7 @@ bdwkc
 - [x] Support TXT
 - [x] Support PPT
 - [x] Better CLI interface
-- [ ] Web interface
+- [x] Websocket interface
 - [ ] Perfect the capture method
 
 # License

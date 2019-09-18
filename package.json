@@ -9,6 +9,7 @@
   "main": "dist/index.js",
   "scripts": {
     "start": "nodemon --exec babel-node src/index.js",
+    "server": "nodemon --exec babel-node src/server.js",
     "test": "./node_modules/.bin/mocha --require @babel/register --recursive ./test",
     "build": "./node_modules/.bin/babel src --out-dir ./dist --source-maps"
   },
@@ -30,7 +31,8 @@
     "gm": "^1.23.1",
     "inquirer": "^7.0.0",
     "puppeteer": "^1.19.0",
-    "tesseract.js": "^2.0.0-alpha.15"
+    "tesseract.js": "^2.0.0-alpha.15",
+    "ws": "^7.1.2"
   },
   "repository": {
     "url": "https://github.com/delapecci/baidu-doc"

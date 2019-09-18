@@ -22,67 +22,70 @@ export default class DocCapture extends EventEmitter {
    * @param {string} workDir 
    */
   async process(docUrl, workDir) {
-    this.docUrl = docUrl;
-    this.captureId = `ZW_${Date.now()}`;
-    this.workDir = workDir || '.';
+
+    const captureId = `ZW_${Date.now()}`;
+    const outputDir = workDir || '.';
 
     this.on('CAPTURE_PAGE', (viewNo) => {
       console.log('📥\t' + chalk.green('[保存第' + viewNo + '屏]'));
     });
-
-    const browser = await puppeteer.launch({
-      headless: true,
-      ignoreHTTPSErrors: true,
-      args: ["--ignore-certificate-errors", "--no-sandbox"] 
-    });
   
+    if (!this.browser) {
+      this.browser = await puppeteer.launch({
+        headless: true,
+        ignoreHTTPSErrors: true,
+        args: ["--ignore-certificate-errors", "--no-sandbox"] 
+      });
+    }
+    const page = await this.browser.newPage();
     try {
-      this.page = await browser.newPage();
-      await this.page.setViewport(this._defaultViewport());
+      await page.setViewport(this._defaultViewport());
 
-      await this._loadDoc();
-      console.log('🔎\t' + chalk.green('[打开文档' + this.docTitle + ']'));
+      const docTitle = await this._loadDoc(page, docUrl);
+      console.log('🔎\t' + chalk.green('[打开文档' + docTitle + ']'));
       console.log('🔪\t' + chalk.green('[展开所有页]'));
-      await this._trimDoc();
-
-      // 获取文档类型
-      this.docType = await this.page.evaluate('window.__DOC_TYPE__');
-
+      await this._trimDoc(page);
       console.log('✂️\t' + chalk.green('[分屏抓取]'));
-      await this._capture();
+      await this._capture(page, captureId, docTitle, outputDir);
       console.log('🎉\t' + chalk.green('[文档抓取完毕]'));
     } catch (e) {
       console.log('💣\t' + chalk.red('[Error] ' + e.message));
     } finally {
-      await browser.close();
+      await page.close();
     }
+  }
+
+  async stop() {
+    await this.browser.close();
   }
 
   /**
    * 私有: 加载文档
+   * @param {Page} page puppeteer page object
+   * @param {string} docUrl 文档URL
    */
-  async _loadDoc() {
-    await this.page.goto(
-      this.docUrl,
+  async _loadDoc(page, docUrl) {
+    await page.goto(
+      docUrl,
       {
         timeout: 0, 
         waitUntil: 'networkidle2'
       }
     );
-    const docTitle = await this.page.evaluate('document.title') + '';
-    this.docTitle = docTitle.replace(/\s|\-|百度文库/g, '');
+    const docTitle = await page.evaluate('document.title') + '';
+    return docTitle.replace(/\s|\-|百度文库/g, '');
   } 
 
   /**
    * 修剪文档页面
    */
-  async _trimDoc() {
+  async _trimDoc(page) {
     // 点击继续阅读
-    await this.page.click('.moreBtn');
-    await this.page.waitForFunction(function() {
+    await page.click('.moreBtn');
+    await page.waitForFunction(function() {
       return document.getElementById('doc_bottom_wrap').style.display !== 'none'
     }, { polling: 1000 });
-    await this.page.evaluate(function() {
+    await page.evaluate(function() {
       $('.wk-other-new-cntent').remove();
       $('.fix-searchbar-wrap').remove();
       $('.reader-tools-bar-wrap').remove();
@@ -153,7 +156,10 @@ export default class DocCapture extends EventEmitter {
   /**
    * 私有: 滚屏抓取
    */
-  async _capture() {
+  async _capture(page, captureId, docTitle, workDir) {
+
+    // 获取文档类型
+    const docType = await page.evaluate('window.__DOC_TYPE__');
 
     let { pageSelectorPrefix, pageClass, pageLineClass } = ((docType) => {
 
@@ -166,7 +172,7 @@ export default class DocCapture extends EventEmitter {
       } else {
         return null;
       }
-    })(this.docType);
+    })(docType);
 
     if (pageSelectorPrefix === null) {
       console.warn('🥺\t' + chalk.yellowBright('暂不支持此类文档'));
@@ -175,22 +181,22 @@ export default class DocCapture extends EventEmitter {
 
     // 滚动文档加载页面，并截图
     let viewNo = 1;
-    const totalPage = await this.page.evaluate('$("' + pageClass + '").length');
+    const totalPage = await page.evaluate('$("' + pageClass + '").length');
     while (viewNo <= totalPage) {
 
-      // const session = await this.page.target().createCDPSession();
+      // const session = await page.target().createCDPSession();
       // await session.send('Emulation.setPageScaleFactor', {
       //   pageScaleFactor: 0.5, // 50%
       // });
 
-      // await this.page.evaluate(function(w) {
+      // await page.evaluate(function(w) {
       //   if (window.reader && window.reader.reader && window.reader.reader.setZoom) {
       //     window.reader.reader.setZoom(w);
       //   }
       // }, this._defaultViewport().width * 0.92);
 
       // 滚屏并等待需要加载的内容
-      await this.page.evaluate(function(n, pageSelectorPrefix) {
+      await page.evaluate(function(n, pageSelectorPrefix) {
         window.__SCREEN_SCROLLED__ = false;
         if ($(pageSelectorPrefix + n).length === 1) {
           $('html, body').animate({ 'scrollTop': $(pageSelectorPrefix + n).offset().top, 'scrollLeft': $(pageSelectorPrefix + n).offset().left }, 2000, function() {
@@ -204,7 +210,7 @@ export default class DocCapture extends EventEmitter {
         }
       }, viewNo, pageSelectorPrefix);
 
-      await this.page.waitForFunction(function(n, pageSelectorPrefix, pageLineClass) {
+      await page.waitForFunction(function(n, pageSelectorPrefix, pageLineClass) {
 
         if (window.__SCREEN_BOTTOM__ === true) return true;
         // 检查页：滚动停止且内容加载完成
@@ -224,38 +230,28 @@ export default class DocCapture extends EventEmitter {
       }, { polling: 1000 }, viewNo, pageSelectorPrefix, pageLineClass);
 
       // 适应页面大小
-      const docPageHandle = await this.page.$(pageSelectorPrefix + viewNo);
+      const docPageHandle = await page.$(pageSelectorPrefix + viewNo);
       const boundingBox = await docPageHandle.boundingBox();
       const newViewport = {
           width: Math.max(this._defaultViewport().width, Math.ceil(boundingBox.width)),
           //FIXME: 这是一个并不可靠的方式，依据百度文库文档一般都不会大于默认尺寸的假设，此处对viewport的设置选择较小值
           height: Math.min(this._defaultViewport().height, Math.ceil(boundingBox.height)),
       };
-      await this.page.setViewport(Object.assign({}, this._defaultViewport(), newViewport));
+      await page.setViewport(Object.assign({}, this._defaultViewport(), newViewport));
       
-      await this.page.waitFor(1000);
+      await page.waitFor(1000);
 
-      if (this.docType === 'txt') {
+      if (docType === 'txt') {
         // txt类型文档直接抓取内容
-        const txtContents = await this.page.evaluate((pageSelector) => {
+        const txtContents = await page.evaluate((pageSelector) => {
           return $(pageSelector + ' .p-txt').text();
         }, pageSelectorPrefix + viewNo);
-        await this._appendTxt(txtContents, path.join(this.workDir, `${this.docTitle}.txt`));
+        await this._appendTxt(txtContents, path.join(outputDir, `${docTitle}.txt`));
       } else {
-        // doc/pdf/xls抓取屏幕
-        // FIXME: page.screenshot clip bug
-        // if (Math.ceil(boundingBox.height) < this._defaultViewport().height) {
-        //   await this._screenshotDOMElement({
-        //     path: path.join(this.workDir, `${this.captureId}_${viewNo}.jpeg`),
-        //     selector: pageSelectorPrefix + viewNo,
-        //     type: 'jpeg'
-        //   })
-        // } else {
-          await this.page.screenshot({
-            type: 'jpeg',
-            path: path.join(this.workDir, `${this.captureId}_${viewNo}.jpeg`)
-          });
-        // }
+        await page.screenshot({
+          type: 'jpeg',
+          path: path.join(workDir, `${captureId}_${viewNo}.jpeg`)
+        });
       }
 
       this.emit('CAPTURE_PAGE', viewNo);
@@ -264,7 +260,7 @@ export default class DocCapture extends EventEmitter {
 
     }
 
-    this.emit('capture_complete', path.resolve(this.workDir), this.captureId, this.docTitle, this.docType);
+    this.emit('capture_complete', path.resolve(workDir), captureId, docTitle, docType);
   }
 
   /**
@@ -272,7 +268,7 @@ export default class DocCapture extends EventEmitter {
    * FIXME: 存在clip抓取空白bug
    * @param {object} opts 
    */
-  async _screenshotDOMElement(opts = {}) {
+  async _screenshotDOMElement(page, opts = {}) {
     const padding = 'padding' in opts ? opts.padding : 0;
     const path = 'path' in opts ? opts.path : null;
     const type = 'type' in opts ? opts.type : 'png';
@@ -281,7 +277,7 @@ export default class DocCapture extends EventEmitter {
     if (!selector)
         throw Error('Please provide a selector.');
 
-    const rect = await this.page.evaluate(selector => {
+    const rect = await page.evaluate(selector => {
         const element = document.querySelector(selector);
         if (!element)
             return null;
@@ -300,7 +296,7 @@ export default class DocCapture extends EventEmitter {
         throw Error(`Could not find element that matches selector: ${selector}.`);
     // console.log(chalk.red(JSON.stringify(rect)));
 
-    return await this.page.screenshot({
+    return await page.screenshot({
       type,
       path,
       clip: {
