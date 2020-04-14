@@ -10,6 +10,7 @@
  */
 import 'dotenv/config';
 import { prompt } from 'inquirer';
+import chalk from 'chalk';
 import DocCapture from './doc_capture';
 import { bundle_pdf } from './image_helper';
 
@@ -37,8 +38,10 @@ prompt(prompts)
     const docCapture = new DocCapture();
     // Example: 监听抓取完成事件，利用imagemagick生成pdf
     docCapture.on('capture_complete', async (workDir, captureId, docTitle, docType) => {
-      if (docType !== 'txt' && answers.convertPdf === true)
+      if (docType !== 'txt' && answers.convertPdf === true) {
         await bundle_pdf(captureId, docTitle, workDir);
+        console.log('🎉\t' + chalk.green('[PDF文档合成完毕]'));
+      }
     });
     await docCapture.process(
       // 'https://wenku.baidu.com/view/72e9233b4b7302768e9951e79b89680203d86b05.html',

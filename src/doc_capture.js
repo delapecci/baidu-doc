@@ -248,9 +248,12 @@ export default class DocCapture extends EventEmitter {
         }, pageSelectorPrefix + viewNo);
         await this._appendTxt(txtContents, path.join(outputDir, `${docTitle}.txt`));
       } else {
+        let viewNoStr = ('' + viewNo).padStart(3, '0')
         await page.screenshot({
-          type: 'jpeg',
-          path: path.join(workDir, `${captureId}_${viewNo}.jpeg`)
+          // type: 'jpeg',
+          type: 'png',
+          // path: path.join(workDir, `${captureId}_${viewNo}.jpeg`)
+          path: path.join(workDir, `${captureId}_${viewNoStr}.png`)
         });
       }
 
